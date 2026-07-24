@@ -6,6 +6,7 @@ import { Layout, Menu, theme } from "antd";
 import {
   DashboardOutlined,
   UserOutlined,
+  UnorderedListOutlined,
   SettingOutlined,
 } from "@ant-design/icons";
 
@@ -14,6 +15,7 @@ const { Header, Sider, Content } = Layout;
 const menuItems = [
   { key: "/", icon: <DashboardOutlined />, label: "主页" },
   { key: "/users", icon: <UserOutlined />, label: "用户管理" },
+  { key: "/menu", icon: <UnorderedListOutlined />, label: "菜单管理" },
   { key: "/settings", icon: <SettingOutlined />, label: "系统设置" },
 ];
 
