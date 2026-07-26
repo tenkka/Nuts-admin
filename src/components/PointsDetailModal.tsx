@@ -10,7 +10,6 @@ import {
   Form,
   Input,
   InputNumber,
-  List,
   Modal,
   Radio,
   Row,
@@ -95,43 +94,45 @@ function PointsHistory({ openid }: { openid: string }) {
         {transactions.length === 0 && !loading ? (
           <Empty description="暂无积分记录" />
         ) : (
-          <List
-            size="small"
-            dataSource={transactions}
-            style={{ maxHeight: 320, overflowY: "auto" }}
-            renderItem={(tx) => (
-              <List.Item
-                extra={
-                  <span
-                    style={{
-                      fontWeight: 600,
-                      color: tx.delta >= 0 ? "#3f8600" : "#cf1322",
-                    }}
-                  >
-                    {tx.delta >= 0 ? `+${tx.delta}` : tx.delta}
-                  </span>
-                }
+          // antd v6 的 List 已废弃，这里用普通列表渲染
+          <div style={{ maxHeight: 320, overflowY: "auto" }}>
+            {transactions.map((tx) => (
+              <div
+                key={tx.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  padding: "8px 0",
+                  borderBottom: "1px solid rgba(5, 5, 5, 0.06)",
+                }}
               >
-                <List.Item.Meta
-                  title={
-                    <Space size={4}>
-                      <span>{tx.description || "-"}</span>
-                      <Tag>{pointsSourceLabel(tx.source)}</Tag>
-                    </Space>
-                  }
-                  description={
-                    <span style={{ fontSize: 12 }}>
-                      {tx.createdAt
-                        ? new Date(tx.createdAt).toLocaleString("zh-CN")
-                        : "-"}
-                      {" · 余额 "}
-                      {tx.balanceBefore} → {tx.balanceAfter}
-                    </span>
-                  }
-                />
-              </List.Item>
-            )}
-          />
+                <div style={{ minWidth: 0 }}>
+                  <Space size={4}>
+                    <span>{tx.description || "-"}</span>
+                    <Tag>{pointsSourceLabel(tx.source)}</Tag>
+                  </Space>
+                  <div style={{ fontSize: 12, color: "rgba(0, 0, 0, 0.45)" }}>
+                    {tx.createdAt
+                      ? new Date(tx.createdAt).toLocaleString("zh-CN")
+                      : "-"}
+                    {" · 余额 "}
+                    {tx.balanceBefore} → {tx.balanceAfter}
+                  </div>
+                </div>
+                <span
+                  style={{
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                    color: tx.delta >= 0 ? "#3f8600" : "#cf1322",
+                  }}
+                >
+                  {tx.delta >= 0 ? `+${tx.delta}` : tx.delta}
+                </span>
+              </div>
+            ))}
+          </div>
         )}
       </Spin>
     </div>
@@ -200,7 +201,7 @@ export default function PointsDetailModal({
         </Button>,
       ]}
     >
-      <Space direction="vertical" style={{ width: "100%" }} size="large">
+      <Space orientation="vertical" style={{ width: "100%" }} size="large">
         <Space align="center" size="middle">
           <Avatar
             size={56}
