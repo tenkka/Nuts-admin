@@ -1,0 +1,232 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Alert, Avatar, Select, Space, Table, Tag } from "antd";
+import type { TablePaginationConfig } from "antd";
+import { UserOutlined } from "@ant-design/icons";
+import AdminLayout from "@/components/AdminLayout";
+import {
+  ORDER_TYPE_COLORS,
+  ORDER_TYPE_LABELS,
+  orderMethodLabel,
+  orderTypeLabel,
+} from "@/lib/orders";
+
+interface OrderRecord {
+  id: string;
+  openid: string;
+  nick: string;
+  avatarUrl: string;
+  phone: string;
+  type: string;
+  method: string;
+  rechargeAmount: number;
+  giftAmount: number;
+  totalAmount: number;
+  wechatAmount: number;
+  realPrice: number;
+  note: string;
+  outTradeNo: string;
+  createdAt: string;
+}
+
+interface UserOption {
+  openid: string;
+  nick: string;
+  phone: string;
+}
+
+const PAGE_SIZE = 20;
+
+function amount(value: number) {
+  if (!value) return "-";
+  const text = `¥${Math.abs(value).toFixed(2)}`;
+  return (
+    <span style={{ color: value < 0 ? "#cf1322" : "#3f8600" }}>
+      {value < 0 ? `-${text}` : `+${text}`}
+    </span>
+  );
+}
+
+const columns = [
+  {
+    title: "用户",
+    key: "user",
+    render: (_: unknown, record: OrderRecord) => (
+      <Space>
+        <Avatar
+          size="small"
+          src={record.avatarUrl || undefined}
+          icon={<UserOutlined />}
+        />
+        <span>{record.nick || record.openid.slice(0, 8) || "-"}</span>
+      </Space>
+    ),
+  },
+  {
+    title: "类型",
+    dataIndex: "type",
+    key: "type",
+    render: (type: string) => (
+      <Tag color={ORDER_TYPE_COLORS[type]}>{orderTypeLabel(type)}</Tag>
+    ),
+  },
+  {
+    title: "充值余额",
+    dataIndex: "rechargeAmount",
+    key: "rechargeAmount",
+    render: amount,
+  },
+  {
+    title: "赠送余额",
+    dataIndex: "giftAmount",
+    key: "giftAmount",
+    render: amount,
+  },
+  {
+    title: "合计",
+    dataIndex: "totalAmount",
+    key: "totalAmount",
+    render: amount,
+  },
+  {
+    title: "支付方式",
+    dataIndex: "method",
+    key: "method",
+    render: (method: string) => orderMethodLabel(method),
+  },
+  {
+    title: "备注",
+    dataIndex: "note",
+    key: "note",
+    render: (note: string) => note || "-",
+  },
+  {
+    title: "商户单号",
+    dataIndex: "outTradeNo",
+    key: "outTradeNo",
+    render: (v: string) => v || "-",
+  },
+  {
+    title: "时间",
+    dataIndex: "createdAt",
+    key: "createdAt",
+    render: (v: string) => (v ? new Date(v).toLocaleString("zh-CN") : "-"),
+  },
+];
+
+export default function OrdersPage() {
+  const [orders, setOrders] = useState<OrderRecord[]>([]);
+  const [users, setUsers] = useState<UserOption[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [openid, setOpenid] = useState<string | undefined>();
+  const [type, setType] = useState<string | undefined>();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams({
+      page: String(page - 1),
+      size: String(PAGE_SIZE),
+    });
+    if (openid) params.set("openid", openid);
+    if (type) params.set("type", type);
+
+    fetch(`/api/orders?${params}`)
+      .then(async (res) => {
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || "加载订单失败");
+        setOrders(body.orders);
+        setTotal(body.total);
+        setError(null);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [page, openid, type]);
+
+  useEffect(() => {
+    fetch("/api/users")
+      .then(async (res) => {
+        const body = await res.json();
+        if (!res.ok) return;
+        setUsers(body.users);
+      })
+      .catch(() => {
+        // 用户下拉只是筛选辅助，加载失败不影响订单列表
+      });
+  }, []);
+
+  const pagination: TablePaginationConfig = {
+    current: page,
+    pageSize: PAGE_SIZE,
+    total,
+    showSizeChanger: false,
+    showTotal: (t) => `共 ${t} 条`,
+    onChange: (next) => {
+      setLoading(true);
+      setPage(next);
+    },
+  };
+
+  // 筛选条件变化后由上面的 effect 重新拉数据，这里只负责把表格切回加载态
+  const applyFilter = (apply: () => void) => {
+    setLoading(true);
+    setPage(1);
+    apply();
+  };
+
+  return (
+    <AdminLayout>
+      <h2 style={{ marginBottom: 24 }}>订单管理</h2>
+
+      {error && (
+        <Alert
+          type="error"
+          title="加载失败"
+          description={error}
+          style={{ marginBottom: 16 }}
+          showIcon
+        />
+      )}
+
+      <Space style={{ marginBottom: 16 }} wrap>
+        <Select
+          showSearch
+          allowClear
+          placeholder="按用户筛选"
+          style={{ width: 240 }}
+          value={openid}
+          onChange={(value) => applyFilter(() => setOpenid(value))}
+          filterOption={(input, option) =>
+            (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+          }
+          options={users.map((u) => ({
+            label: `${u.nick || "（无昵称）"}${u.phone ? ` ${u.phone}` : ""}`,
+            value: u.openid,
+          }))}
+        />
+        <Select
+          allowClear
+          placeholder="按类型筛选"
+          style={{ width: 160 }}
+          value={type}
+          onChange={(value) => applyFilter(() => setType(value))}
+          options={Object.entries(ORDER_TYPE_LABELS).map(([value, label]) => ({
+            label,
+            value,
+          }))}
+        />
+      </Space>
+
+      <Table
+        rowKey="id"
+        columns={columns}
+        dataSource={orders}
+        loading={loading}
+        pagination={pagination}
+        scroll={{ x: "max-content" }}
+      />
+    </AdminLayout>
+  );
+}

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getCloudbaseApp, getDb } from "@/lib/cloudbase";
+import { getDb } from "@/lib/cloudbase";
+import { pickUrl, resolveCloudFileUrls } from "@/lib/cloudFiles";
 
 interface UserDoc {
   _id: string;
@@ -16,50 +17,41 @@ interface UserDoc {
   createdAt?: string;
 }
 
-const TEMP_URL_BATCH_SIZE = 50;
-
-function chunk<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size));
-  }
-  return chunks;
+interface PointAccountDoc {
+  openid?: string;
+  balance?: number;
 }
+
+const MAX_DOCS = 1000;
 
 export async function GET() {
   try {
     const db = getDb();
-    const { data } = await db.collection("users").limit(1000).get();
-    const docs = data as UserDoc[];
+    const [usersRes, pointsRes] = await Promise.all([
+      db.collection("users").limit(MAX_DOCS).get(),
+      db.collection("user_points").limit(MAX_DOCS).get(),
+    ]);
 
-    const cloudAvatars = docs
-      .map((doc) => doc.avatarUrl)
-      .filter((url): url is string => !!url && url.startsWith("cloud://"));
+    const docs = usersRes.data as UserDoc[];
+    const pointsMap = new Map(
+      (pointsRes.data as PointAccountDoc[])
+        .filter((doc) => !!doc.openid)
+        .map((doc) => [doc.openid as string, doc.balance ?? 0])
+    );
 
-    let avatarUrlMap = new Map<string, string>();
-    if (cloudAvatars.length > 0) {
-      const app = getCloudbaseApp();
-      const batches = await Promise.all(
-        chunk(cloudAvatars, TEMP_URL_BATCH_SIZE).map((fileList) =>
-          app.getTempFileURL({ fileList })
-        )
-      );
-      avatarUrlMap = new Map(
-        batches.flatMap(({ fileList }) =>
-          fileList.map((f) => [f.fileID, f.tempFileURL] as const)
-        )
-      );
-    }
+    const avatarUrlMap = await resolveCloudFileUrls(
+      docs.map((doc) => doc.avatarUrl)
+    );
 
     const users = docs.map((doc) => ({
       id: doc._id,
       nick: doc.nick ?? "",
       phone: doc.phone ?? "",
       openid: doc.openid ?? "",
-      avatarUrl: doc.avatarUrl
-        ? avatarUrlMap.get(doc.avatarUrl) ?? doc.avatarUrl
-        : "",
+      avatarUrl: pickUrl(doc.avatarUrl, avatarUrlMap),
+      // power 是旧的战力值；积分走 user_points 集合，只读展示
       power: doc.power ?? 0,
+      points: doc.openid ? pointsMap.get(doc.openid) ?? 0 : 0,
       rechargeBalance: doc.rechargeBalance ?? 0,
       giftBalance: doc.giftBalance ?? 0,
       lotteryTickets: doc.lotteryTickets ?? 0,

@@ -21,7 +21,10 @@ export interface UserRecord {
   phone: string;
   openid: string;
   avatarUrl: string;
+  /** 旧的战力值，可直接编辑 */
   power: number;
+  /** 积分余额，来自 user_points 集合，只能在积分管理页调整（要写流水） */
+  points: number;
   rechargeBalance: number;
   giftBalance: number;
   lotteryTickets: number;
@@ -155,7 +158,7 @@ export default function UserDetailModal({
             <Form.Item label="手机号" name="phone">
               <Input />
             </Form.Item>
-            <Form.Item label="积分" name="power">
+            <Form.Item label="战力" name="power">
               <InputNumber style={{ width: "100%" }} />
             </Form.Item>
             <Form.Item label="充值余额" name="rechargeBalance">
@@ -180,7 +183,13 @@ export default function UserDetailModal({
             <Descriptions.Item label="openid">{user.openid}</Descriptions.Item>
             <Descriptions.Item label="昵称">{user.nick}</Descriptions.Item>
             <Descriptions.Item label="手机号">{user.phone || "-"}</Descriptions.Item>
-            <Descriptions.Item label="积分">{user.power}</Descriptions.Item>
+            <Descriptions.Item label="积分">
+              {user.points}
+              <span style={{ color: "rgba(0,0,0,0.45)", marginLeft: 8 }}>
+                （在积分管理页调整）
+              </span>
+            </Descriptions.Item>
+            <Descriptions.Item label="战力">{user.power}</Descriptions.Item>
             <Descriptions.Item label="充值余额">
               {user.rechargeBalance}
             </Descriptions.Item>

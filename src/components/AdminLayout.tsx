@@ -8,6 +8,9 @@ import {
   UserOutlined,
   UnorderedListOutlined,
   SettingOutlined,
+  GiftOutlined,
+  ShoppingCartOutlined,
+  TableOutlined,
 } from "@ant-design/icons";
 
 const { Header, Sider, Content } = Layout;
@@ -15,6 +18,9 @@ const { Header, Sider, Content } = Layout;
 const menuItems = [
   { key: "/", icon: <DashboardOutlined />, label: "主页" },
   { key: "/users", icon: <UserOutlined />, label: "用户管理" },
+  { key: "/points", icon: <GiftOutlined />, label: "积分管理" },
+  { key: "/orders", icon: <ShoppingCartOutlined />, label: "订单管理" },
+  { key: "/tables", icon: <TableOutlined />, label: "桌台管理" },
   { key: "/menu", icon: <UnorderedListOutlined />, label: "菜单管理" },
   { key: "/settings", icon: <SettingOutlined />, label: "系统设置" },
 ];
