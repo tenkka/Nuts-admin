@@ -15,10 +15,12 @@ import {
   Space,
   Switch,
   Table,
+  Tabs,
   Tag,
+  Tooltip,
   message,
 } from "antd";
-import { PlusOutlined, UserOutlined } from "@ant-design/icons";
+import { DownOutlined, PlusOutlined, UserOutlined } from "@ant-design/icons";
 import AdminLayout from "@/components/AdminLayout";
 import {
   BOOKING_STATUSES,
@@ -66,6 +68,8 @@ interface TableFormValues {
   isOpen: boolean;
 }
 
+const ORPHAN_TAB_KEY = "__orphan__";
+
 export default function TablesPage() {
   const [tables, setTables] = useState<TableRecord[]>([]);
   const [stores, setStores] = useState<Store[]>([]);
@@ -73,6 +77,7 @@ export default function TablesPage() {
   const [error, setError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<TableRecord | null>(null);
+  const [activeStore, setActiveStore] = useState<string>();
   const [submitting, setSubmitting] = useState(false);
   const [form] = Form.useForm<TableFormValues>();
 
@@ -96,6 +101,32 @@ export default function TablesPage() {
   useEffect(() => {
     loadTables();
   }, [loadTables]);
+
+  // 门店标签页。activeStore 为空时落到第一个标签，避免在 effect 里补默认值
+  const knownStoreIds = new Set(stores.map((s) => s.id));
+  const orphanTables = tables.filter(
+    (t) => t.storeId == null || !knownStoreIds.has(t.storeId)
+  );
+  const tabItems = [
+    ...stores.map((store) => ({
+      key: String(store.id),
+      label: `${store.name}（${
+        tables.filter((t) => t.storeId === store.id).length
+      }）`,
+    })),
+    ...(orphanTables.length > 0
+      ? [{ key: ORPHAN_TAB_KEY, label: `未归属门店（${orphanTables.length}）` }]
+      : []),
+  ];
+  // 选中的标签可能已经消失（比如最后一张未归属桌台被改到了正式门店），
+  // 这时回退到第一个标签，避免出现无选中态的空列表
+  const activeKey = tabItems.some((tab) => tab.key === activeStore)
+    ? (activeStore as string)
+    : tabItems[0]?.key ?? "";
+  const visibleTables =
+    activeKey === ORPHAN_TAB_KEY
+      ? orphanTables
+      : tables.filter((t) => String(t.storeId) === activeKey);
 
   const openCreate = () => {
     setEditing(null);
@@ -124,6 +155,10 @@ export default function TablesPage() {
       message.success(editing ? "保存成功" : "添加成功");
       setModalOpen(false);
       form.resetFields();
+      // 桌台可能被存到了当前标签页之外的门店，跟过去，免得看起来像没保存成功
+      if (typeof values.storeId === "number") {
+        setActiveStore(String(values.storeId));
+      }
       loadTables();
     } catch (err) {
       message.error(err instanceof Error ? err.message : "保存失败");
@@ -162,7 +197,6 @@ export default function TablesPage() {
 
   const columns = [
     { title: "桌台名称", dataIndex: "name", key: "name" },
-    { title: "门店", dataIndex: "storeName", key: "storeName" },
     { title: "人数上限", dataIndex: "maxplayer", key: "maxplayer" },
     {
       title: "占位情况",
@@ -175,6 +209,40 @@ export default function TablesPage() {
           {record.queueCount > 0 && <Tag color="gold">排队 {record.queueCount}</Tag>}
         </Space>
       ),
+    },
+    {
+      title: "预约用户",
+      key: "guests",
+      render: (_: unknown, record: TableRecord) => {
+        if (record.bookings.length === 0) {
+          return <span style={{ color: "rgba(0,0,0,0.45)" }}>暂无</span>;
+        }
+        return (
+          <Space size={4} wrap style={{ maxWidth: 320 }}>
+            {record.bookings.map((booking) => (
+              <Tooltip
+                key={booking.id}
+                title={`${BOOKING_TYPE_LABELS[booking.type] ?? booking.type} · ${
+                  BOOKING_STATUS_LABELS[booking.status as BookingStatus] ??
+                  booking.status
+                }${booking.arrivalTime ? ` · ${booking.arrivalTime} 到店` : ""}`}
+              >
+                <Tag
+                  color={booking.type === "queue" ? "gold" : "blue"}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                >
+                  <Avatar
+                    size={18}
+                    src={booking.avatarUrl || undefined}
+                    icon={<UserOutlined />}
+                  />
+                  {booking.nick || booking.openid.slice(0, 6)}
+                </Tag>
+              </Tooltip>
+            ))}
+          </Space>
+        );
+      },
     },
     {
       title: "状态",
@@ -294,10 +362,19 @@ export default function TablesPage() {
         />
       )}
 
+      {tabItems.length > 0 && (
+        <Tabs
+          activeKey={activeKey}
+          onChange={setActiveStore}
+          items={tabItems}
+          style={{ marginBottom: 8 }}
+        />
+      )}
+
       <Table
         rowKey="id"
         columns={columns}
-        dataSource={tables}
+        dataSource={visibleTables}
         loading={loading}
         scroll={{ x: "max-content" }}
         expandable={{
@@ -316,7 +393,20 @@ export default function TablesPage() {
                 pagination={false}
               />
             ),
-          rowExpandable: () => true,
+          // 没有预约的桌台不显示展开箭头，避免点开是空的
+          rowExpandable: (record) => record.bookings.length > 0,
+          expandIcon: ({ expanded, onExpand, record }) =>
+            record.bookings.length === 0 ? null : (
+              <DownOutlined
+                rotate={expanded ? 180 : 0}
+                style={{
+                  cursor: "pointer",
+                  color: "rgba(0,0,0,0.45)",
+                  transition: "transform 0.2s",
+                }}
+                onClick={(e) => onExpand(record, e)}
+              />
+            ),
         }}
       />
 
@@ -342,7 +432,14 @@ export default function TablesPage() {
                   sort: editing.sort,
                   isOpen: editing.isOpen,
                 }
-              : { isOpen: true, sort: 0, maxplayer: 6 }
+              : {
+                  isOpen: true,
+                  maxplayer: 6,
+                  // 默认落在当前标签页的门店，排序接在该店最后一张桌之后
+                  storeId: activeKey === ORPHAN_TAB_KEY ? undefined : Number(activeKey),
+                  sort:
+                    visibleTables.reduce((max, t) => Math.max(max, t.sort), 0) + 1,
+                }
           }
         >
           <Form.Item

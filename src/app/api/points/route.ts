@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/cloudbase";
 import { pickUrl, resolveCloudFileUrls } from "@/lib/cloudFiles";
 import { toIsoString } from "@/lib/serialize";
+import { dedupeUsersByOpenid } from "@/lib/userLookup";
 
 const MAX_DOCS = 1000;
 
@@ -34,7 +35,8 @@ export async function GET() {
       db.collection("user_points").limit(MAX_DOCS).get(),
     ]);
 
-    const userDocs = usersRes.data as UserDoc[];
+    // 同一 openid 的重复用户文档只保留一条，否则同一个人会占两行、统计翻倍
+    const userDocs = dedupeUsersByOpenid(usersRes.data as UserDoc[]);
     const accountDocs = accountsRes.data as PointAccountDoc[];
 
     const accountMap = new Map(
@@ -48,7 +50,6 @@ export async function GET() {
     );
 
     const accounts = userDocs
-      .filter((doc) => !!doc.openid)
       .map((doc) => {
         const account = accountMap.get(doc.openid as string);
         return {

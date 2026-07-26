@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Avatar, Select, Space, Table, Tag } from "antd";
 import type { TablePaginationConfig } from "antd";
 import { UserOutlined } from "@ant-design/icons";
@@ -133,16 +133,28 @@ export default function OrdersPage() {
     if (openid) params.set("openid", openid);
     if (type) params.set("type", type);
 
+    // 快速连点翻页/筛选时，先发的请求可能后返回，用 stale 标记丢弃过期响应
+    let stale = false;
+
     fetch(`/api/orders?${params}`)
       .then(async (res) => {
         const body = await res.json();
+        if (stale) return;
         if (!res.ok) throw new Error(body.error || "加载订单失败");
         setOrders(body.orders);
         setTotal(body.total);
         setError(null);
       })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (!stale) setError(err.message);
+      })
+      .finally(() => {
+        if (!stale) setLoading(false);
+      });
+
+    return () => {
+      stale = true;
+    };
   }, [page, openid, type]);
 
   useEffect(() => {
@@ -156,6 +168,20 @@ export default function OrdersPage() {
         // 用户下拉只是筛选辅助，加载失败不影响订单列表
       });
   }, []);
+
+  // users 里同一 openid 可能有多条历史记录，下拉里只保留信息最全的一条
+  const userOptions = useMemo(() => {
+    const best = new Map<string, UserOption>();
+    for (const user of users) {
+      if (!user.openid) continue;
+      const current = best.get(user.openid);
+      if (!current || (!current.nick && user.nick)) best.set(user.openid, user);
+    }
+    return [...best.values()].map((u) => ({
+      label: `${u.nick || "（无昵称）"}${u.phone ? ` ${u.phone}` : ""}`,
+      value: u.openid,
+    }));
+  }, [users]);
 
   const pagination: TablePaginationConfig = {
     current: page,
@@ -201,10 +227,7 @@ export default function OrdersPage() {
           filterOption={(input, option) =>
             (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
           }
-          options={users.map((u) => ({
-            label: `${u.nick || "（无昵称）"}${u.phone ? ` ${u.phone}` : ""}`,
-            value: u.openid,
-          }))}
+          options={userOptions}
         />
         <Select
           allowClear
