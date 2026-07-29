@@ -37,10 +37,16 @@ export async function POST(request: Request) {
     }
 
     const token = await createSessionToken(account.username);
+    // Secure cookie 只在真正的 HTTPS 请求下才能被浏览器保留；
+    // 直接看 NODE_ENV 在纯 HTTP 部署（如内网直接用 IP 访问）下会导致 cookie 被浏览器静默丢弃，登录后立刻被弹回登录页。
+    const forwardedProto = request.headers.get("x-forwarded-proto");
+    const isHttps = forwardedProto
+      ? forwardedProto === "https"
+      : new URL(request.url).protocol === "https:";
     const response = NextResponse.json({ ok: true });
     response.cookies.set(SESSION_COOKIE, token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isHttps,
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24 * 7,
