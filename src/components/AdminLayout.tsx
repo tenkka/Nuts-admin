@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Layout, Menu, theme } from "antd";
+import { Button, Layout, Menu, theme } from "antd";
 import {
   DashboardOutlined,
   UserOutlined,
@@ -11,6 +11,7 @@ import {
   GiftOutlined,
   ShoppingCartOutlined,
   TableOutlined,
+  LogoutOutlined,
 } from "@ant-design/icons";
 
 const { Header, Sider, Content } = Layout;
@@ -31,11 +32,19 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    await fetch("/api/logout", { method: "POST" });
+    router.push("/login");
+    router.refresh();
+  };
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
@@ -63,8 +72,23 @@ export default function AdminLayout({
         />
       </Sider>
       <Layout>
-        <Header style={{ padding: "0 16px", background: colorBgContainer }}>
+        <Header
+          style={{
+            padding: "0 16px",
+            background: colorBgContainer,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           Nuts后台管理
+          <Button
+            icon={<LogoutOutlined />}
+            loading={loggingOut}
+            onClick={handleLogout}
+          >
+            退出登录
+          </Button>
         </Header>
         <Content style={{ margin: "16px" }}>
           <div

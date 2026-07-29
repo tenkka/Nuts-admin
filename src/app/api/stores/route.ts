@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/cloudbase";
+import { getSession } from "@/lib/session";
 
 interface StoreDoc {
   _id: string;
@@ -9,6 +10,10 @@ interface StoreDoc {
 }
 
 export async function GET() {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "未登录" }, { status: 401 });
+  }
   try {
     const db = getDb();
     const { data } = await db.collection("stores").limit(1000).get();

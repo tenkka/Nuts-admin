@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/cloudbase";
 import { pickUrl, resolveCloudFileUrls } from "@/lib/cloudFiles";
+import { getSession } from "@/lib/session";
 
 interface UserDoc {
   _id: string;
@@ -25,6 +26,10 @@ interface PointAccountDoc {
 const MAX_DOCS = 1000;
 
 export async function GET() {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "未登录" }, { status: 401 });
+  }
   try {
     const db = getDb();
     const [usersRes, pointsRes] = await Promise.all([

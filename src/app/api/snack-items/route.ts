@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/cloudbase";
 import { SNACK_CATEGORIES } from "@/lib/snackCategories";
+import { getSession } from "@/lib/session";
 
 interface SnackItemDoc {
   _id: string;
@@ -12,6 +13,10 @@ interface SnackItemDoc {
 }
 
 export async function GET() {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "未登录" }, { status: 401 });
+  }
   try {
     const db = getDb();
     const { data } = await db.collection("snack_items").limit(1000).get();
@@ -33,6 +38,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "未登录" }, { status: 401 });
+  }
   try {
     const body = await request.json();
     const { name, category, pointsCost, store, isActive } = body;
