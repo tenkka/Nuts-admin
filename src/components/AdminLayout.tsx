@@ -12,6 +12,7 @@ import {
   ShoppingCartOutlined,
   TableOutlined,
   LogoutOutlined,
+  DesktopOutlined,
 } from "@ant-design/icons";
 
 const { Header, Sider, Content } = Layout;
@@ -23,6 +24,7 @@ const menuItems = [
   { key: "/orders", icon: <ShoppingCartOutlined />, label: "订单管理" },
   { key: "/tables", icon: <TableOutlined />, label: "桌台管理" },
   { key: "/menu", icon: <UnorderedListOutlined />, label: "菜单管理" },
+  { key: "/devices", icon: <DesktopOutlined />, label: "设备管理" },
   { key: "/settings", icon: <SettingOutlined />, label: "系统设置" },
 ];
 

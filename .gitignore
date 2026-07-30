@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# print-agent (local per-machine service)
+print-agent/node_modules
+print-agent/config.json
+print-agent/run-hidden.vbs

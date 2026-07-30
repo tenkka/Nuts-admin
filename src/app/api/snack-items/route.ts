@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/cloudbase";
 import { SNACK_CATEGORIES } from "@/lib/snackCategories";
 import { getSession } from "@/lib/session";
+import { pickUrl, resolveCloudFileUrls } from "@/lib/cloudFiles";
 
 interface SnackItemDoc {
   _id: string;
@@ -10,6 +11,8 @@ interface SnackItemDoc {
   pointsCost?: number | string;
   isActive?: boolean;
   store?: number[];
+  image?: string;
+  unit?: string;
 }
 
 export async function GET() {
@@ -20,13 +23,19 @@ export async function GET() {
   try {
     const db = getDb();
     const { data } = await db.collection("snack_items").limit(1000).get();
-    const items = (data as SnackItemDoc[]).map((doc) => ({
+    const docs = data as SnackItemDoc[];
+
+    const imageUrlMap = await resolveCloudFileUrls(docs.map((doc) => doc.image));
+
+    const items = docs.map((doc) => ({
       id: doc._id,
       name: doc.name ?? "",
       category: doc.category ?? "",
       pointsCost: Number(doc.pointsCost ?? 0),
       isActive: doc.isActive ?? true,
       store: doc.store ?? [],
+      image: pickUrl(doc.image, imageUrlMap),
+      unit: doc.unit ?? "",
     }));
     return NextResponse.json({ items });
   } catch (error) {
@@ -44,7 +53,7 @@ export async function POST(request: Request) {
   }
   try {
     const body = await request.json();
-    const { name, category, pointsCost, store, isActive } = body;
+    const { name, category, pointsCost, store, isActive, image, unit } = body;
 
     if (!name || typeof name !== "string") {
       return NextResponse.json({ error: "菜品名称不能为空" }, { status: 400 });
@@ -66,6 +75,8 @@ export async function POST(request: Request) {
       pointsCost,
       store,
       isActive: isActive ?? true,
+      image: typeof image === "string" ? image : "",
+      unit: typeof unit === "string" ? unit : "",
     });
     return NextResponse.json({ id }, { status: 201 });
   } catch (error) {
