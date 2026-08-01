@@ -13,6 +13,7 @@ import {
   TableOutlined,
   LogoutOutlined,
   DesktopOutlined,
+  QrcodeOutlined,
 } from "@ant-design/icons";
 
 const { Header, Sider, Content } = Layout;
@@ -20,6 +21,7 @@ const { Header, Sider, Content } = Layout;
 const menuItems = [
   { key: "/", icon: <DashboardOutlined />, label: "主页" },
   { key: "/users", icon: <UserOutlined />, label: "用户管理" },
+  { key: "/scan", icon: <QrcodeOutlined />, label: "扫码查询" },
   { key: "/points", icon: <GiftOutlined />, label: "积分管理" },
   { key: "/orders", icon: <ShoppingCartOutlined />, label: "订单管理" },
   { key: "/tables", icon: <TableOutlined />, label: "桌台管理" },

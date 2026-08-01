@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Card, Form, Input, message } from "antd";
+import type { InputRef } from "antd";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
 
 interface LoginValues {
@@ -13,6 +14,16 @@ interface LoginValues {
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const usernameRef = useRef<InputRef>(null);
+
+  // autoFocus 会让浏览器在 HTML 解析阶段就原生聚焦这个输入框，早于 React
+  // hydrate 完成；移动端浏览器上这会导致服务端渲染的 HTML 和客户端预期的
+  // DOM 状态对不上，触发 hydration mismatch，页面直接罢工显示成没渲染的
+  // 源码文本。改成 hydrate 完成后再用 ref 手动聚焦，服务端渲染的 HTML 就
+  // 不会带任何和"聚焦"相关的差异。
+  useEffect(() => {
+    usernameRef.current?.focus();
+  }, []);
 
   const handleSubmit = async (values: LoginValues) => {
     setLoading(true);
@@ -51,7 +62,7 @@ export default function LoginPage() {
             name="username"
             rules={[{ required: true, message: "请输入用户名" }]}
           >
-            <Input prefix={<UserOutlined />} placeholder="用户名" autoFocus />
+            <Input ref={usernameRef} prefix={<UserOutlined />} placeholder="用户名" />
           </Form.Item>
           <Form.Item
             label="密码"
