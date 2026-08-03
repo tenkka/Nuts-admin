@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getDb } from "@/lib/cloudbase";
+import { getDb, getOrEmpty } from "@/lib/cloudbase";
 import { fallbackUser, getUsersByOpenid } from "@/lib/userLookup";
 import { toIsoString } from "@/lib/serialize";
 
@@ -23,11 +23,14 @@ interface TransactionDoc {
 
 /**
  * 积分流水。带 openid 就是单个用户的历史记录，不带就是全站最新流水。
+ * direction=earn 只看增加（delta > 0），direction=spend 只看兑换/扣除（delta < 0），
+ * 不传则两种都返回。
  */
 export async function GET(request: NextRequest) {
   try {
     const params = request.nextUrl.searchParams;
     const openid = params.get("openid")?.trim() || "";
+    const direction = params.get("direction")?.trim() || "";
     const page = Math.max(0, Number(params.get("page") ?? 0) || 0);
     const size = Math.min(
       MAX_SIZE,
@@ -35,14 +38,22 @@ export async function GET(request: NextRequest) {
     );
 
     const db = getDb();
-    const query = openid ? { openid } : {};
-    const { data } = await db
-      .collection("points_transactions")
-      .where(query)
-      .orderBy("createdAt", "desc")
-      .skip(page * size)
-      .limit(size)
-      .get();
+    const _ = db.command;
+
+    const query: Record<string, unknown> = {};
+    if (openid) query.openid = openid;
+    if (direction === "earn") query.delta = _.gt(0);
+    else if (direction === "spend") query.delta = _.lt(0);
+
+    const { data } = await getOrEmpty(
+      db
+        .collection("points_transactions")
+        .where(query)
+        .orderBy("createdAt", "desc")
+        .skip(page * size)
+        .limit(size)
+        .get()
+    );
 
     const docs = data as TransactionDoc[];
     const userMap = openid

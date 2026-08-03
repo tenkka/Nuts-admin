@@ -1,10 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Alert, Avatar, Card, Col, Input, Row, Statistic, Table } from "antd";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Alert,
+  Avatar,
+  Badge,
+  Card,
+  Col,
+  Input,
+  Row,
+  Statistic,
+  Table,
+  Tabs,
+} from "antd";
 import { UserOutlined } from "@ant-design/icons";
 import AdminLayout from "@/components/AdminLayout";
 import PointsDetailModal, { PointAccount } from "@/components/PointsDetailModal";
+import PointsTransactionTable from "@/components/PointsTransactionTable";
+import { useRedeemAlerts } from "@/components/RedeemAlertProvider";
 
 const columns = [
   {
@@ -35,12 +48,23 @@ const columns = [
 ];
 
 export default function PointsPage() {
+  // 内容拆成子组件，才能落在 AdminLayout 里的 RedeemAlertProvider 之下
+  return (
+    <AdminLayout>
+      <PointsContent />
+    </AdminLayout>
+  );
+}
+
+function PointsContent() {
   const [accounts, setAccounts] = useState<PointAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [keyword, setKeyword] = useState("");
   const [selected, setSelected] = useState<PointAccount | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("accounts");
+  const { unread, markAllRead, redemptions } = useRedeemAlerts();
 
   useEffect(() => {
     fetch("/api/points")
@@ -52,6 +76,11 @@ export default function PointsPage() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  // 人已经停在兑换 tab 上了，新兑换进来直接算已读，红点不用再闪
+  useEffect(() => {
+    if (activeTab === "redeem" && unread > 0) markAllRead();
+  }, [activeTab, unread, markAllRead]);
 
   const filtered = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
@@ -89,8 +118,96 @@ export default function PointsPage() {
     setSelected((prev) => (prev && prev.openid === openid ? applyDelta(prev) : prev));
   };
 
+  const openAccount = useCallback(
+    (openid: string) => {
+      const account = accounts.find((a) => a.openid === openid);
+      if (!account) return;
+      setSelected(account);
+      setModalOpen(true);
+    },
+    [accounts]
+  );
+
+  // 最新兑换的时间戳，变了就让兑换表重新拉第一页
+  const redeemReloadKey = redemptions.length
+    ? Date.parse(redemptions[0].createdAt) || 0
+    : 0;
+
+  const tabItems = [
+    {
+      key: "accounts",
+      label: "积分账户",
+      children: (
+        <>
+          <Row gutter={16} style={{ marginBottom: 16 }}>
+            <Col span={8}>
+              <Card>
+                <Statistic title="持有积分用户数" value={summary.holders} />
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card>
+                <Statistic title="流通积分总量" value={summary.totalBalance} />
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card>
+                <Statistic title="累计消耗积分" value={summary.totalSpent} />
+              </Card>
+            </Col>
+          </Row>
+
+          <Input.Search
+            placeholder="搜索昵称 / 手机号 / openid"
+            allowClear
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            style={{ maxWidth: 320, marginBottom: 16 }}
+          />
+
+          <Table
+            rowKey="openid"
+            columns={columns}
+            dataSource={filtered}
+            loading={loading}
+            scroll={{ x: "max-content" }}
+            onRow={(record) => ({
+              onClick: () => {
+                setSelected(record);
+                setModalOpen(true);
+              },
+              style: { cursor: "pointer" },
+            })}
+          />
+        </>
+      ),
+    },
+    {
+      key: "earn",
+      label: "积分增加",
+      children: (
+        <PointsTransactionTable direction="earn" onRowClick={openAccount} />
+      ),
+    },
+    {
+      key: "redeem",
+      label: (
+        <Badge count={unread} size="small" offset={[10, -2]} overflowCount={99}>
+          积分兑换
+        </Badge>
+      ),
+      children: (
+        <PointsTransactionTable
+          direction="spend"
+          reloadKey={redeemReloadKey}
+          onRowClick={openAccount}
+        />
+      ),
+    },
+  ];
+
   return (
-    <AdminLayout>
+    <>
       <h2 style={{ marginBottom: 24 }}>积分管理</h2>
 
       {error && (
@@ -103,46 +220,7 @@ export default function PointsPage() {
         />
       )}
 
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={8}>
-          <Card>
-            <Statistic title="持有积分用户数" value={summary.holders} />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic title="流通积分总量" value={summary.totalBalance} />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic title="累计消耗积分" value={summary.totalSpent} />
-          </Card>
-        </Col>
-      </Row>
-
-      <Input.Search
-        placeholder="搜索昵称 / 手机号 / openid"
-        allowClear
-        value={keyword}
-        onChange={(e) => setKeyword(e.target.value)}
-        style={{ maxWidth: 320, marginBottom: 16 }}
-      />
-
-      <Table
-        rowKey="openid"
-        columns={columns}
-        dataSource={filtered}
-        loading={loading}
-        scroll={{ x: "max-content" }}
-        onRow={(record) => ({
-          onClick: () => {
-            setSelected(record);
-            setModalOpen(true);
-          },
-          style: { cursor: "pointer" },
-        })}
-      />
+      <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
 
       <PointsDetailModal
         account={selected}
@@ -150,6 +228,6 @@ export default function PointsPage() {
         onClose={() => setModalOpen(false)}
         onAdjusted={handleAdjusted}
       />
-    </AdminLayout>
+    </>
   );
 }

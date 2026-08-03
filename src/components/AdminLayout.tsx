@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Button, Layout, Menu, theme } from "antd";
+import { Badge, Button, Layout, Menu, theme } from "antd";
 import {
   DashboardOutlined,
   UserOutlined,
@@ -16,6 +16,7 @@ import {
   QrcodeOutlined,
   ThunderboltOutlined,
 } from "@ant-design/icons";
+import RedeemAlertProvider, { useRedeemAlerts } from "./RedeemAlertProvider";
 
 const { Header, Sider, Content } = Layout;
 
@@ -32,18 +33,71 @@ const menuItems = [
   { key: "/settings", icon: <SettingOutlined />, label: "系统设置" },
 ];
 
+/**
+ * Badge 默认带一圈 1px 的 colorBorderBg（白色）描边，本意是让红点和下面的头像分开，
+ * 但侧边栏是深色底，那圈白边会很明显，所以这里去掉。
+ */
+const BADGE_ON_DARK = { indicator: { boxShadow: "none" } };
+
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Provider 包在外面，AdminShell 才能用 useRedeemAlerts 拿到未读数
+  return (
+    <RedeemAlertProvider>
+      <AdminShell>{children}</AdminShell>
+    </RedeemAlertProvider>
+  );
+}
+
+function AdminShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const { unread } = useRedeemAlerts();
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
+
+  // 有未读兑换时给"积分管理"挂红点：展开时显示条数，收起时只剩图标上的小红点
+  const items = useMemo(() => {
+    if (unread <= 0) return menuItems;
+    return menuItems.map((item) =>
+      item.key === "/points"
+        ? {
+            ...item,
+            icon: collapsed ? (
+              <Badge dot offset={[2, 0]} styles={BADGE_ON_DARK}>
+                <GiftOutlined style={{ color: "inherit" }} />
+              </Badge>
+            ) : (
+              item.icon
+            ),
+            label: (
+              <span
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                }}
+              >
+                积分管理
+                <Badge
+                  count={unread}
+                  size="small"
+                  overflowCount={99}
+                  styles={BADGE_ON_DARK}
+                />
+              </span>
+            ),
+          }
+        : item
+    );
+  }, [unread, collapsed]);
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -73,7 +127,7 @@ export default function AdminLayout({
           theme="dark"
           mode="inline"
           selectedKeys={[pathname]}
-          items={menuItems}
+          items={items}
           onClick={({ key }) => router.push(key)}
         />
       </Sider>

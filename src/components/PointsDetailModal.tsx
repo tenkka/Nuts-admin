@@ -16,6 +16,7 @@ import {
   Space,
   Spin,
   Statistic,
+  Tabs,
   Tag,
   message,
 } from "antd";
@@ -55,10 +56,16 @@ interface AdjustFormValues {
 const HISTORY_SIZE = 50;
 
 /**
- * 单个用户的积分流水。靠外层的 key 重新挂载来刷新，
+ * 单个用户某一个方向的积分流水。靠外层的 key 重新挂载来刷新，
  * 这样每次打开/调整后都是干净的加载状态。
  */
-function PointsHistory({ openid }: { openid: string }) {
+function PointsHistory({
+  openid,
+  direction,
+}: {
+  openid: string;
+  direction: "earn" | "spend";
+}) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +74,7 @@ function PointsHistory({ openid }: { openid: string }) {
     fetch(
       `/api/points/transactions?openid=${encodeURIComponent(
         openid
-      )}&size=${HISTORY_SIZE}`
+      )}&direction=${direction}&size=${HISTORY_SIZE}`
     )
       .then(async (res) => {
         const body = await res.json();
@@ -76,11 +83,10 @@ function PointsHistory({ openid }: { openid: string }) {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [openid]);
+  }, [openid, direction]);
 
   return (
     <div>
-      <div style={{ fontWeight: 600, marginBottom: 8 }}>积分流水</div>
       {error && (
         <Alert
           type="error"
@@ -92,7 +98,9 @@ function PointsHistory({ openid }: { openid: string }) {
       )}
       <Spin spinning={loading}>
         {transactions.length === 0 && !loading ? (
-          <Empty description="暂无积分记录" />
+          <Empty
+            description={direction === "earn" ? "暂无增加记录" : "暂无兑换记录"}
+          />
         ) : (
           // antd v6 的 List 已废弃，这里用普通列表渲染
           <div style={{ maxHeight: 320, overflowY: "auto" }}>
@@ -261,7 +269,26 @@ export default function PointsDetailModal({
           </Form.Item>
         </Form>
 
-        <PointsHistory key={`${account.openid}:${refreshKey}`} openid={account.openid} />
+        <Tabs
+          key={`${account.openid}:${refreshKey}`}
+          size="small"
+          items={[
+            {
+              key: "earn",
+              label: "积分增加",
+              children: (
+                <PointsHistory openid={account.openid} direction="earn" />
+              ),
+            },
+            {
+              key: "spend",
+              label: "积分兑换",
+              children: (
+                <PointsHistory openid={account.openid} direction="spend" />
+              ),
+            },
+          ]}
+        />
       </Space>
     </Modal>
   );
