@@ -16,6 +16,7 @@ export interface PointsTransaction {
   description: string;
   balanceBefore: number;
   balanceAfter: number;
+  storeName: string;
   createdAt: string;
 }
 
@@ -128,6 +129,16 @@ export default function PointsTransactionTable({
         key: "description",
         render: (v: string) => v || "-",
       },
+      ...(isEarn
+        ? []
+        : [
+            {
+              title: "门店",
+              dataIndex: "storeName",
+              key: "storeName",
+              render: (v: string) => v || "-",
+            },
+          ]),
       {
         title: "余额变化",
         key: "balance",
