@@ -18,7 +18,12 @@ import {
   Tag,
   Upload,
 } from "antd";
-import { EditOutlined, PictureOutlined, PlusOutlined } from "@ant-design/icons";
+import {
+  EditOutlined,
+  HolderOutlined,
+  PictureOutlined,
+  PlusOutlined,
+} from "@ant-design/icons";
 import AdminLayout from "@/components/AdminLayout";
 import { SNACK_CATEGORIES } from "@/lib/snackCategories";
 
@@ -162,6 +167,11 @@ export default function MenuPage() {
   const [editImagePreview, setEditImagePreview] = useState("");
   const [editForm] = Form.useForm<SnackItemFormValues>();
 
+  // 正在拖的那一行，以及当前悬停到的那一行（用来画落点提示线）
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const [savingOrder, setSavingOrder] = useState(false);
+
   const storeNameMap = new Map(stores.map((s) => [s.id, s.name]));
 
   const loadData = () => {
@@ -276,6 +286,39 @@ export default function MenuPage() {
     }
   };
 
+  /** 先本地换好序再存；存失败就退回原顺序，免得界面和数据库对不上 */
+  const saveOrder = async (next: SnackItem[], previous: SnackItem[]) => {
+    setSavingOrder(true);
+    try {
+      const res = await fetch("/api/snack-items/sort", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: next.map((item) => item.id) }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "保存顺序失败");
+      message.success("顺序已保存");
+    } catch (err) {
+      setItems(previous);
+      message.error(err instanceof Error ? err.message : "保存顺序失败");
+    } finally {
+      setSavingOrder(false);
+    }
+  };
+
+  const handleDropOn = (targetId: string) => {
+    const from = items.findIndex((item) => item.id === dragId);
+    const to = items.findIndex((item) => item.id === targetId);
+    setDragId(null);
+    setOverId(null);
+    if (from < 0 || to < 0 || from === to) return;
+
+    const next = items.slice();
+    next.splice(to, 0, next.splice(from, 1)[0]);
+    setItems(next);
+    saveOrder(next, items);
+  };
+
   const handleDelete = async (id: string) => {
     try {
       const res = await fetch(`/api/snack-items/${id}`, { method: "DELETE" });
@@ -289,6 +332,27 @@ export default function MenuPage() {
   };
 
   const columns = [
+    {
+      title: "排序",
+      key: "drag",
+      width: 60,
+      render: (_: unknown, record: SnackItem) => (
+        <HolderOutlined
+          draggable
+          onDragStart={(e) => {
+            setDragId(record.id);
+            e.dataTransfer.effectAllowed = "move";
+            // Firefox 不设 data 不触发拖拽
+            e.dataTransfer.setData("text/plain", record.id);
+          }}
+          onDragEnd={() => {
+            setDragId(null);
+            setOverId(null);
+          }}
+          style={{ cursor: "grab", color: "rgba(0, 0, 0, 0.45)", fontSize: 16 }}
+        />
+      ),
+    },
     {
       title: "图片",
       dataIndex: "image",
@@ -396,7 +460,7 @@ export default function MenuPage() {
           marginBottom: 24,
         }}
       >
-        <h2>菜单管理</h2>
+        <h2>商城管理</h2>
         <Button
           type="primary"
           icon={<PlusOutlined />}
@@ -420,8 +484,32 @@ export default function MenuPage() {
         rowKey="id"
         columns={columns}
         dataSource={items}
-        loading={loading}
+        loading={loading || savingOrder}
         scroll={{ x: "max-content" }}
+        // 不分页，否则跨页拖不了
+        pagination={false}
+        rowClassName={(record) => {
+          if (dragId === record.id) return "drag-row-dragging";
+          if (!dragId || overId !== record.id) return "";
+          const dragIndex = items.findIndex((item) => item.id === dragId);
+          const overIndex = items.findIndex((item) => item.id === record.id);
+          // 从上往下拖，落点在目标下方；反之在上方
+          return dragIndex < overIndex ? "drag-row-after" : "drag-row-before";
+        }}
+        onRow={(record) => ({
+          onDragOver: (e) => {
+            if (!dragId || dragId === record.id) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            setOverId(record.id);
+          },
+          onDragLeave: () =>
+            setOverId((id) => (id === record.id ? null : id)),
+          onDrop: (e) => {
+            e.preventDefault();
+            handleDropOn(record.id);
+          },
+        })}
       />
 
       <Modal
