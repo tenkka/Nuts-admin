@@ -18,6 +18,8 @@ interface TransactionDoc {
   operatorOpenid?: string | null;
   balanceBefore?: number;
   balanceAfter?: number;
+  storeId?: string | null;
+  storeName?: string | null;
   createdAt?: unknown;
 }
 
@@ -75,6 +77,7 @@ export async function GET(request: NextRequest) {
         description: doc.description ?? "",
         balanceBefore: doc.balanceBefore ?? 0,
         balanceAfter: doc.balanceAfter ?? 0,
+        storeName: doc.storeName ?? "",
         createdAt: toIsoString(doc.createdAt),
       };
     });
