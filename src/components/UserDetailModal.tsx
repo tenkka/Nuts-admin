@@ -63,7 +63,40 @@ export default function UserDetailModal({
   const [deleting, setDeleting] = useState(false);
   const [form] = Form.useForm<EditableFields>();
 
+  const [pointsDelta, setPointsDelta] = useState<number | null>(null);
+  const [pointsDesc, setPointsDesc] = useState("");
+  const [adjustingPoints, setAdjustingPoints] = useState(false);
+
   if (!user) return null;
+
+  const handleAdjustPoints = async () => {
+    if (!pointsDelta) {
+      message.error("请输入要增加或扣除的积分数量");
+      return;
+    }
+    setAdjustingPoints(true);
+    try {
+      const res = await fetch("/api/points", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          openid: user.openid,
+          amount: pointsDelta,
+          description: pointsDesc.trim() || undefined,
+        }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "积分调整失败");
+      onUpdated({ ...user, points: body.balanceAfter });
+      message.success(`积分调整成功，当前余额 ${body.balanceAfter}`);
+      setPointsDelta(null);
+      setPointsDesc("");
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : "积分调整失败");
+    } finally {
+      setAdjustingPoints(false);
+    }
+  };
 
   const handleSave = async () => {
     const values = await form.validateFields();
@@ -108,7 +141,11 @@ export default function UserDetailModal({
       open={open}
       onCancel={onClose}
       afterOpenChange={(isOpen) => {
-        if (!isOpen) setEditing(false);
+        if (!isOpen) {
+          setEditing(false);
+          setPointsDelta(null);
+          setPointsDesc("");
+        }
       }}
       destroyOnHidden
       footer={
@@ -150,6 +187,38 @@ export default function UserDetailModal({
           />
         </div>
 
+        <div
+          style={{
+            padding: 12,
+            background: "rgba(0,0,0,0.02)",
+            borderRadius: 8,
+          }}
+        >
+          <div style={{ marginBottom: 8 }}>
+            积分调整（当前余额 <b>{user.points}</b>）
+          </div>
+          <Space.Compact style={{ width: "100%" }}>
+            <InputNumber
+              style={{ width: "35%" }}
+              placeholder="+100 / -50"
+              value={pointsDelta}
+              onChange={setPointsDelta}
+            />
+            <Input
+              placeholder="备注（可选）"
+              value={pointsDesc}
+              onChange={(e) => setPointsDesc(e.target.value)}
+            />
+            <Button
+              type="primary"
+              loading={adjustingPoints}
+              onClick={handleAdjustPoints}
+            >
+              调整
+            </Button>
+          </Space.Compact>
+        </div>
+
         {editing ? (
           <Form form={form} layout="vertical" initialValues={user}>
             <Form.Item label="昵称" name="nick">
@@ -183,12 +252,7 @@ export default function UserDetailModal({
             <Descriptions.Item label="openid">{user.openid}</Descriptions.Item>
             <Descriptions.Item label="昵称">{user.nick}</Descriptions.Item>
             <Descriptions.Item label="手机号">{user.phone || "-"}</Descriptions.Item>
-            <Descriptions.Item label="积分">
-              {user.points}
-              <span style={{ color: "rgba(0,0,0,0.45)", marginLeft: 8 }}>
-                （在积分管理页调整）
-              </span>
-            </Descriptions.Item>
+            <Descriptions.Item label="积分">{user.points}</Descriptions.Item>
             <Descriptions.Item label="战力">{user.power}</Descriptions.Item>
             <Descriptions.Item label="充值余额">
               {user.rechargeBalance}
