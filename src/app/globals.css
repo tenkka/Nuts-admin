@@ -18,3 +18,20 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/*
+ * 商城管理拖拽排序的落点提示。加在 td 上而不是 tr 上：
+ * antd 表格给每个 td 都设了背景色，画在 tr 上会被盖掉。
+ * 用 inset 阴影而不是 border，免得多出 2px 把整行撑高、拖动时抖动。
+ */
+.drag-row-dragging > td {
+  opacity: 0.4;
+}
+
+.drag-row-before > td {
+  box-shadow: inset 0 2px 0 #1677ff;
+}
+
+.drag-row-after > td {
+  box-shadow: inset 0 -2px 0 #1677ff;
+}

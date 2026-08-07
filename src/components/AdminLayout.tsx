@@ -28,7 +28,7 @@ const menuItems = [
   { key: "/power", icon: <ThunderboltOutlined />, label: "战力管理" },
   { key: "/orders", icon: <ShoppingCartOutlined />, label: "订单管理" },
   { key: "/tables", icon: <TableOutlined />, label: "桌台管理" },
-  { key: "/menu", icon: <UnorderedListOutlined />, label: "菜单管理" },
+  { key: "/menu", icon: <UnorderedListOutlined />, label: "商城管理" },
   { key: "/devices", icon: <DesktopOutlined />, label: "设备管理" },
   { key: "/settings", icon: <SettingOutlined />, label: "系统设置" },
 ];

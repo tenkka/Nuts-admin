@@ -13,6 +13,14 @@ interface SnackItemDoc {
   store?: number[];
   image?: string;
   unit?: string;
+  sort?: number;
+}
+
+/** 还没排过序的老数据排在最后，彼此之间保持原有顺序（Array.sort 是稳定的） */
+const UNSORTED = Number.MAX_SAFE_INTEGER;
+
+function sortValue(doc: { sort?: number }): number {
+  return typeof doc.sort === "number" ? doc.sort : UNSORTED;
 }
 
 export async function GET() {
@@ -23,7 +31,10 @@ export async function GET() {
   try {
     const db = getDb();
     const { data } = await db.collection("snack_items").limit(1000).get();
-    const docs = data as SnackItemDoc[];
+    // 按后台拖拽出来的顺序返回，小程序端直接照这个顺序展示
+    const docs = (data as SnackItemDoc[])
+      .slice()
+      .sort((a, b) => sortValue(a) - sortValue(b));
 
     const imageUrlMap = await resolveCloudFileUrls(docs.map((doc) => doc.image));
 
@@ -69,6 +80,18 @@ export async function POST(request: Request) {
     }
 
     const db = getDb();
+
+    // 新菜品排到最后，不然没有 sort 就默认插到已排序的那批前面去了
+    const { data: existing } = await db
+      .collection("snack_items")
+      .field({ sort: true })
+      .limit(1000)
+      .get();
+    const maxSort = (existing as { sort?: number }[]).reduce(
+      (max, doc) => (typeof doc.sort === "number" ? Math.max(max, doc.sort) : max),
+      -1
+    );
+
     const { id } = await db.collection("snack_items").add({
       name,
       category,
@@ -77,6 +100,8 @@ export async function POST(request: Request) {
       isActive: isActive ?? true,
       image: typeof image === "string" ? image : "",
       unit: typeof unit === "string" ? unit : "",
+      // 一次都还没排过序时不写 sort，写了反而会插到那批老数据前面去
+      ...(maxSort >= 0 ? { sort: maxSort + 1 } : {}),
     });
     return NextResponse.json({ id }, { status: 201 });
   } catch (error) {
