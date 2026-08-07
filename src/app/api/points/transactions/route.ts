@@ -69,6 +69,7 @@ export async function GET(request: NextRequest) {
         id: doc._id,
         openid: doc.openid ?? "",
         nick: user.nick,
+        phone: user.phone,
         avatarUrl: user.avatarUrl,
         delta: doc.delta ?? 0,
         type: doc.type ?? "",

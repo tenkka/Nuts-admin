@@ -5,6 +5,7 @@ import {
   Alert,
   Avatar,
   Badge,
+  Button,
   Card,
   Col,
   Input,
@@ -13,10 +14,11 @@ import {
   Table,
   Tabs,
 } from "antd";
-import { UserOutlined } from "@ant-design/icons";
+import { QrcodeOutlined, UserOutlined } from "@ant-design/icons";
 import AdminLayout from "@/components/AdminLayout";
 import PointsDetailModal, { PointAccount } from "@/components/PointsDetailModal";
 import PointsTransactionTable from "@/components/PointsTransactionTable";
+import RedeemVerifyModal from "@/components/RedeemVerifyModal";
 import { useRedeemAlerts } from "@/components/RedeemAlertProvider";
 
 const columns = [
@@ -64,6 +66,8 @@ function PointsContent() {
   const [selected, setSelected] = useState<PointAccount | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("accounts");
+  const [redeemModalOpen, setRedeemModalOpen] = useState(false);
+  const [manualReloadTick, setManualReloadTick] = useState(0);
   const { unread, markAllRead, redemptions } = useRedeemAlerts();
 
   useEffect(() => {
@@ -128,10 +132,10 @@ function PointsContent() {
     [accounts]
   );
 
-  // 最新兑换的时间戳，变了就让兑换表重新拉第一页
-  const redeemReloadKey = redemptions.length
-    ? Date.parse(redemptions[0].createdAt) || 0
-    : 0;
+  // 最新兑换的时间戳变了，或者手动核销完成一次，都要让兑换表重新拉第一页
+  const redeemReloadKey =
+    (redemptions.length ? Date.parse(redemptions[0].createdAt) || 0 : 0) +
+    manualReloadTick;
 
   const tabItems = [
     {
@@ -201,6 +205,14 @@ function PointsContent() {
           direction="spend"
           reloadKey={redeemReloadKey}
           onRowClick={openAccount}
+          toolbarExtra={
+            <Button
+              icon={<QrcodeOutlined />}
+              onClick={() => setRedeemModalOpen(true)}
+            >
+              扫码核销
+            </Button>
+          }
         />
       ),
     },
@@ -227,6 +239,12 @@ function PointsContent() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onAdjusted={handleAdjusted}
+      />
+
+      <RedeemVerifyModal
+        open={redeemModalOpen}
+        onClose={() => setRedeemModalOpen(false)}
+        onCompleted={() => setManualReloadTick((n) => n + 1)}
       />
     </>
   );

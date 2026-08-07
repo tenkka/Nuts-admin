@@ -9,6 +9,7 @@ export interface PointsTransaction {
   id: string;
   openid: string;
   nick: string;
+  phone: string;
   avatarUrl: string;
   delta: number;
   type: string;
@@ -32,10 +33,13 @@ export default function PointsTransactionTable({
   /** 变一下就重新从第一页拉，用于新兑换到达时刷新 */
   reloadKey = 0,
   onRowClick,
+  toolbarExtra,
 }: {
   direction: "earn" | "spend";
   reloadKey?: number;
   onRowClick?: (openid: string) => void;
+  /** 搜索框旁边的额外按钮，比如兑换 tab 的"扫码核销" */
+  toolbarExtra?: React.ReactNode;
 }) {
   const [rows, setRows] = useState<PointsTransaction[]>([]);
   const [page, setPage] = useState(0);
@@ -81,6 +85,7 @@ export default function PointsTransactionTable({
     return rows.filter(
       (r) =>
         r.nick.toLowerCase().includes(kw) ||
+        r.phone.includes(kw) ||
         r.description.toLowerCase().includes(kw) ||
         r.openid.toLowerCase().includes(kw)
     );
@@ -169,7 +174,7 @@ export default function PointsTransactionTable({
 
       <Space style={{ marginBottom: 16 }} wrap>
         <Input.Search
-          placeholder="搜索昵称 / 说明 / openid"
+          placeholder="搜索昵称 / 手机号 / 说明 / openid"
           allowClear
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
@@ -185,6 +190,7 @@ export default function PointsTransactionTable({
         >
           刷新
         </Button>
+        {toolbarExtra}
       </Space>
 
       <Table
