@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Badge, Button, Layout, Menu, theme } from "antd";
+import { Badge, Button, Drawer, Grid, Layout, Menu, theme } from "antd";
 import {
   DashboardOutlined,
   UserOutlined,
@@ -16,10 +16,12 @@ import {
   QrcodeOutlined,
   ThunderboltOutlined,
   ShopOutlined,
+  MenuOutlined,
 } from "@ant-design/icons";
 import RedeemAlertProvider, { useRedeemAlerts } from "./RedeemAlertProvider";
 
 const { Header, Sider, Content } = Layout;
+const { useBreakpoint } = Grid;
 
 const menuItems = [
   { key: "/", icon: <DashboardOutlined />, label: "主页" },
@@ -57,12 +59,17 @@ export default function AdminLayout({
 function AdminShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { unread } = useRedeemAlerts();
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
+  // md 断点（768px）以下按手机布局处理：侧边栏收起来，靠汉堡按钮弹抽屉，
+  // 不然固定侧边栏在窄屏上会把内容区挤成一条，文字全竖排
+  const screens = useBreakpoint();
+  const isMobile = screens.md === false;
 
   // 有未读兑换时给"积分管理"挂红点：展开时显示条数，收起时只剩图标上的小红点
   const items = useMemo(() => {
@@ -108,54 +115,103 @@ function AdminShell({ children }: { children: React.ReactNode }) {
     router.refresh();
   };
 
+  const navMenu = (
+    <Menu
+      theme="dark"
+      mode="inline"
+      selectedKeys={[pathname]}
+      items={items}
+      onClick={({ key }) => {
+        router.push(key);
+        setMobileNavOpen(false);
+      }}
+    />
+  );
+
   return (
     <Layout style={{ minHeight: "100vh" }}>
-      <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed}>
-        <div
-          style={{
-            height: 32,
-            margin: 16,
-            color: "#fff",
-            fontWeight: 600,
-            fontSize: collapsed ? 16 : 18,
-            textAlign: "center",
-            overflow: "hidden",
-            whiteSpace: "nowrap",
-          }}
+      {isMobile ? (
+        <Drawer
+          placement="left"
+          open={mobileNavOpen}
+          onClose={() => setMobileNavOpen(false)}
+          closable={false}
+          size={220}
+          styles={{ body: { padding: 0, background: "#001529" } }}
         >
-          {collapsed ? "N" : "Nuts后台"}
-        </div>
-        <Menu
-          theme="dark"
-          mode="inline"
-          selectedKeys={[pathname]}
-          items={items}
-          onClick={({ key }) => router.push(key)}
-        />
-      </Sider>
+          <div
+            style={{
+              height: 32,
+              margin: 16,
+              color: "#fff",
+              fontWeight: 600,
+              fontSize: 18,
+              textAlign: "center",
+            }}
+          >
+            Nuts后台
+          </div>
+          {navMenu}
+        </Drawer>
+      ) : (
+        <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed}>
+          <div
+            style={{
+              height: 32,
+              margin: 16,
+              color: "#fff",
+              fontWeight: 600,
+              fontSize: collapsed ? 16 : 18,
+              textAlign: "center",
+              overflow: "hidden",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {collapsed ? "N" : "Nuts后台"}
+          </div>
+          {navMenu}
+        </Sider>
+      )}
       <Layout>
         <Header
           style={{
-            padding: "0 16px",
+            padding: isMobile ? "0 12px" : "0 16px",
             background: colorBgContainer,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
+            gap: 8,
           }}
         >
-          Nuts后台管理
+          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            {isMobile && (
+              <Button
+                icon={<MenuOutlined />}
+                onClick={() => setMobileNavOpen(true)}
+              />
+            )}
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {isMobile ? "Nuts后台" : "Nuts后台管理"}
+            </span>
+          </div>
           <Button
             icon={<LogoutOutlined />}
             loading={loggingOut}
             onClick={handleLogout}
           >
-            退出登录
+            {isMobile ? "" : "退出登录"}
           </Button>
         </Header>
-        <Content style={{ margin: "16px" }}>
+        <Content style={{ margin: isMobile ? "8px" : "16px" }}>
           <div
             style={{
-              padding: 24,
+              padding: isMobile ? 12 : 24,
               minHeight: 360,
               background: colorBgContainer,
               borderRadius: borderRadiusLG,

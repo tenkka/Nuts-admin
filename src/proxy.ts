@@ -3,10 +3,23 @@ import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
 
 const PUBLIC_PATHS = ["/login", "/api/login"];
 
+// scan 角色（前台核销专用账号）登录后只能看这几个路径，
+// 其它一律弹回 /verify，不让它们碰到完整后台的任何页面/接口
+const SCAN_ROLE_ALLOWED_PATHS = [
+  "/verify",
+  "/api/redeem-orders",
+  "/api/points/transactions",
+  "/api/logout",
+];
+
+function matchesPath(pathname: string, allowed: string[]) {
+  return allowed.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
 export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
+  if (matchesPath(pathname, PUBLIC_PATHS)) {
     return NextResponse.next();
   }
 
@@ -19,6 +32,13 @@ export default async function proxy(request: NextRequest) {
     }
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
+  }
+
+  if (session.role === "scan" && !matchesPath(pathname, SCAN_ROLE_ALLOWED_PATHS)) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "无权限访问" }, { status: 403 });
+    }
+    return NextResponse.redirect(new URL("/verify", request.url));
   }
 
   return NextResponse.next();

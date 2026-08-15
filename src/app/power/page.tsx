@@ -118,18 +118,18 @@ export default function PowerPage() {
         />
       )}
 
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={8}>
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={12} md={8}>
           <Card>
             <Statistic title="参与人数" value={summary.participants} />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col xs={24} sm={12} md={8}>
           <Card>
             <Statistic title="战力总和" value={summary.totalPower} />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col xs={24} sm={12} md={8}>
           <Card>
             <Statistic title="冠军总次数" value={summary.totalChampions} />
           </Card>

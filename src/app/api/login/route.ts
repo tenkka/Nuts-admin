@@ -27,7 +27,9 @@ export async function POST(request: Request) {
       .limit(1)
       .get();
 
-    const account = data[0] as { username: string; password: string } | undefined;
+    const account = data[0] as
+      | { username: string; password: string; role?: string }
+      | undefined;
 
     if (!account || !safeCompare(String(account.password), String(password))) {
       return NextResponse.json(
@@ -36,7 +38,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const token = await createSessionToken(account.username);
+    const token = await createSessionToken(account.username, account.role || "owner");
     // Secure cookie 只在真正的 HTTPS 请求下才能被浏览器保留；
     // 直接看 NODE_ENV 在纯 HTTP 部署（如内网直接用 IP 访问）下会导致 cookie 被浏览器静默丢弃，登录后立刻被弹回登录页。
     const forwardedProto = request.headers.get("x-forwarded-proto");

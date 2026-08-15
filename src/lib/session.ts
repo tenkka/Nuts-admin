@@ -4,6 +4,11 @@ import { SignJWT, jwtVerify } from "jose";
 export const SESSION_COOKIE = "nuts_admin_session";
 const SESSION_DURATION = "7d";
 
+export interface SessionPayload {
+  username: string;
+  role: string;
+}
+
 function getSecretKey() {
   const secret = process.env.SESSION_SECRET;
   if (!secret) {
@@ -12,18 +17,25 @@ function getSecretKey() {
   return new TextEncoder().encode(secret);
 }
 
-export async function createSessionToken(username: string) {
-  return new SignJWT({ username })
+export async function createSessionToken(username: string, role: string) {
+  return new SignJWT({ username, role })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime(SESSION_DURATION)
     .sign(getSecretKey());
 }
 
-export async function verifySessionToken(token: string) {
+export async function verifySessionToken(
+  token: string
+): Promise<SessionPayload | null> {
   try {
     const { payload } = await jwtVerify(token, getSecretKey());
-    return payload as { username: string };
+    // 老 token 是登录系统上线时签的，还没有 role 这个字段，缺省当成
+    // owner（管理员）处理，不然已登录的人会被 role 检查卡在半路
+    return {
+      username: payload.username as string,
+      role: (payload.role as string) ?? "owner",
+    };
   } catch {
     return null;
   }

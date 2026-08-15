@@ -143,18 +143,18 @@ function PointsContent() {
       label: "积分账户",
       children: (
         <>
-          <Row gutter={16} style={{ marginBottom: 16 }}>
-            <Col span={8}>
+          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+            <Col xs={24} sm={12} md={8}>
               <Card>
                 <Statistic title="持有积分用户数" value={summary.holders} />
               </Card>
             </Col>
-            <Col span={8}>
+            <Col xs={24} sm={12} md={8}>
               <Card>
                 <Statistic title="流通积分总量" value={summary.totalBalance} />
               </Card>
             </Col>
-            <Col span={8}>
+            <Col xs={24} sm={12} md={8}>
               <Card>
                 <Statistic title="累计消耗积分" value={summary.totalSpent} />
               </Card>

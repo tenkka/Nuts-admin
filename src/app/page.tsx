@@ -39,8 +39,8 @@ export default function Home() {
           showIcon
         />
       )}
-      <Row gutter={16}>
-        <Col span={8}>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} md={8}>
           <Card loading={loading}>
             <Statistic
               title="用户总数"
@@ -49,7 +49,7 @@ export default function Home() {
             />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col xs={24} sm={12} md={8}>
           <Card loading={loading}>
             <Statistic
               title="订单总数"
@@ -58,7 +58,7 @@ export default function Home() {
             />
           </Card>
         </Col>
-        <Col span={8}>
+        <Col xs={24} sm={12} md={8}>
           <Card loading={loading}>
             <Statistic
               title="总收入（充值本金）"
