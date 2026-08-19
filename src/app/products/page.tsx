@@ -11,6 +11,7 @@ import {
   message,
   Modal,
   Popconfirm,
+  Select,
   Space,
   Switch,
   Table,
@@ -24,26 +25,46 @@ import {
   PlusOutlined,
 } from "@ant-design/icons";
 import AdminLayout from "@/components/AdminLayout";
+import { PRODUCT_CATEGORIES } from "@/lib/productCategories";
 
 const { TextArea } = Input;
+
+interface Store {
+  id: number;
+  name: string;
+  city: string;
+}
 
 interface Product {
   id: string;
   name: string;
+  category: string;
   price: number;
   bonusPoints: number;
   desc: string;
   isActive: boolean;
   image: string;
+  store: number[];
 }
 
 interface ProductFormValues {
   name: string;
+  category: string;
   price: number;
   bonusPoints: number;
   desc: string;
   isActive: boolean;
+  store: number[];
 }
+
+const CATEGORY_COLORS: Record<string, string> = {
+  套餐: "gold",
+  鸡尾酒: "magenta",
+  啤酒: "volcano",
+  小食: "cyan",
+  下午茶: "geekblue",
+  甜品: "pink",
+};
 
 function ImageUploadField({
   preview,
@@ -81,7 +102,7 @@ function ImageUploadField({
   );
 }
 
-function ProductFormFields() {
+function ProductFormFields({ stores }: { stores: Store[] }) {
   return (
     <>
       <Form.Item
@@ -90,6 +111,16 @@ function ProductFormFields() {
         rules={[{ required: true, message: "请输入名称" }]}
       >
         <Input placeholder="例如：138 酒水套餐" />
+      </Form.Item>
+      <Form.Item
+        label="种类"
+        name="category"
+        rules={[{ required: true, message: "请选择种类" }]}
+      >
+        <Select
+          options={PRODUCT_CATEGORIES.map((c) => ({ label: c, value: c }))}
+          placeholder="选择种类"
+        />
       </Form.Item>
       <Form.Item
         label="价格（元）"
@@ -111,12 +142,27 @@ function ProductFormFields() {
       <Form.Item label="是否上架" name="isActive" valuePropName="checked">
         <Switch />
       </Form.Item>
+      <Form.Item
+        label="门店"
+        name="store"
+        rules={[{ required: true, message: "请至少选择一个门店" }]}
+      >
+        <Select
+          mode="multiple"
+          placeholder="选择门店"
+          options={stores.map((s) => ({
+            label: `${s.name}${s.city ? `（${s.city}）` : ""}`,
+            value: s.id,
+          }))}
+        />
+      </Form.Item>
     </>
   );
 }
 
 export default function ProductsPage() {
   const [items, setItems] = useState<Product[]>([]);
+  const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -140,11 +186,14 @@ export default function ProductsPage() {
   const [savingOrder, setSavingOrder] = useState(false);
 
   const loadData = () => {
-    fetch("/api/products")
-      .then(async (res) => {
-        const body = await res.json();
-        if (!res.ok) throw new Error(body.error || "加载套餐失败");
-        setItems(body.products);
+    Promise.all([fetch("/api/products"), fetch("/api/stores")])
+      .then(async ([productsRes, storesRes]) => {
+        const productsBody = await productsRes.json();
+        if (!productsRes.ok) throw new Error(productsBody.error || "加载套餐失败");
+        const storesBody = await storesRes.json();
+        if (!storesRes.ok) throw new Error(storesBody.error || "加载门店失败");
+        setItems(productsBody.products);
+        setStores(storesBody.stores);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -286,6 +335,8 @@ export default function ProductsPage() {
     }
   };
 
+  const storeNameMap = new Map(stores.map((s) => [s.id, s.name]));
+
   const columns = [
     {
       title: "排序",
@@ -327,6 +378,14 @@ export default function ProductsPage() {
     },
     { title: "名称", dataIndex: "name", key: "name" },
     {
+      title: "种类",
+      dataIndex: "category",
+      key: "category",
+      render: (category: string) => (
+        <Tag color={CATEGORY_COLORS[category]}>{category}</Tag>
+      ),
+    },
+    {
       title: "价格",
       dataIndex: "price",
       key: "price",
@@ -350,6 +409,18 @@ export default function ProductsPage() {
       ),
     },
     {
+      title: "门店",
+      dataIndex: "store",
+      key: "store",
+      render: (store: number[]) => (
+        <Space size={4} wrap>
+          {store.map((id) => (
+            <Tag key={id}>{storeNameMap.get(id) ?? `#${id}`}</Tag>
+          ))}
+        </Space>
+      ),
+    },
+    {
       title: "操作",
       key: "actions",
       render: (_: unknown, record: Product) => (
@@ -365,10 +436,12 @@ export default function ProductsPage() {
               // antd 只在表单第一次挂载时应用 initialValues，之后会一直显示上一次编辑的数据
               editForm.setFieldsValue({
                 name: record.name,
+                category: record.category,
                 price: record.price,
                 bonusPoints: record.bonusPoints,
                 desc: record.desc,
                 isActive: record.isActive,
+                store: record.store,
               });
             }}
           >
@@ -473,7 +546,7 @@ export default function ProductsPage() {
             uploading={uploading}
             onUpload={handleUpload}
           />
-          <ProductFormFields />
+          <ProductFormFields stores={stores} />
         </Form>
       </Modal>
 
@@ -494,7 +567,7 @@ export default function ProductsPage() {
               uploading={editUploading}
               onUpload={handleEditUpload}
             />
-            <ProductFormFields />
+            <ProductFormFields stores={stores} />
           </Form>
         )}
       </Modal>

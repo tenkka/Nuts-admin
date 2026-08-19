@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/cloudbase";
 import { getSession } from "@/lib/session";
+import { PRODUCT_CATEGORIES } from "@/lib/productCategories";
 
 export async function PATCH(
   request: Request,
@@ -20,6 +21,12 @@ export async function PATCH(
         return NextResponse.json({ error: "名称不能为空" }, { status: 400 });
       }
       update.name = body.name;
+    }
+    if ("category" in body) {
+      if (!PRODUCT_CATEGORIES.includes(body.category)) {
+        return NextResponse.json({ error: "种类不合法" }, { status: 400 });
+      }
+      update.category = body.category;
     }
     if ("price" in body) {
       if (typeof body.price !== "number" || body.price < 0) {
@@ -41,6 +48,16 @@ export async function PATCH(
     }
     if ("image" in body) {
       update.cloudImage = typeof body.image === "string" ? body.image : "";
+    }
+    if ("store" in body) {
+      if (
+        !Array.isArray(body.store) ||
+        body.store.length === 0 ||
+        !body.store.every((s: unknown) => typeof s === "number")
+      ) {
+        return NextResponse.json({ error: "请至少选择一个门店" }, { status: 400 });
+      }
+      update.store = body.store;
     }
 
     if (Object.keys(update).length === 0) {

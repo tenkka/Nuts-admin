@@ -2,16 +2,19 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/cloudbase";
 import { getSession } from "@/lib/session";
 import { pickUrl, resolveCloudFileUrls } from "@/lib/cloudFiles";
+import { PRODUCT_CATEGORIES } from "@/lib/productCategories";
 
 interface ProductDoc {
   _id: string;
   name?: string;
+  category?: string;
   price?: number;
   bonusPoints?: number;
   cloudImage?: string;
   desc?: string;
   isActive?: boolean;
   sort?: number;
+  store?: number[];
 }
 
 /** 还没排过序的老数据排在最后，彼此之间保持原有顺序（Array.sort 是稳定的） */
@@ -38,11 +41,13 @@ export async function GET() {
     const products = docs.map((doc) => ({
       id: doc._id,
       name: doc.name ?? "",
+      category: doc.category ?? "",
       price: doc.price ?? 0,
       bonusPoints: doc.bonusPoints ?? 0,
       desc: doc.desc ?? "",
       isActive: doc.isActive ?? true,
       image: pickUrl(doc.cloudImage, imageUrlMap),
+      store: doc.store ?? [],
     }));
     return NextResponse.json({ products });
   } catch (error) {
@@ -60,16 +65,22 @@ export async function POST(request: Request) {
   }
   try {
     const body = await request.json();
-    const { name, price, bonusPoints, desc, isActive, image } = body;
+    const { name, category, price, bonusPoints, desc, isActive, image, store } = body;
 
     if (!name || typeof name !== "string") {
       return NextResponse.json({ error: "名称不能为空" }, { status: 400 });
+    }
+    if (!PRODUCT_CATEGORIES.includes(category)) {
+      return NextResponse.json({ error: "种类不合法" }, { status: 400 });
     }
     if (typeof price !== "number" || price < 0) {
       return NextResponse.json({ error: "价格不合法" }, { status: 400 });
     }
     if (typeof bonusPoints !== "number" || bonusPoints < 0) {
       return NextResponse.json({ error: "赠送积分不合法" }, { status: 400 });
+    }
+    if (!Array.isArray(store) || store.length === 0 || !store.every((s) => typeof s === "number")) {
+      return NextResponse.json({ error: "请至少选择一个门店" }, { status: 400 });
     }
 
     const db = getDb();
@@ -87,11 +98,13 @@ export async function POST(request: Request) {
 
     const { id } = await db.collection("products").add({
       name,
+      category,
       price,
       bonusPoints,
       desc: typeof desc === "string" ? desc : "",
       isActive: isActive ?? true,
       cloudImage: typeof image === "string" ? image : "",
+      store,
       // 一次都还没排过序时不写 sort，写了反而会插到那批老数据前面去
       ...(maxSort >= 0 ? { sort: maxSort + 1 } : {}),
     });
