@@ -1,8 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Avatar, Card, Col, Input, Row, Select, Statistic, Table } from "antd";
-import { UserOutlined } from "@ant-design/icons";
+import {
+  Alert,
+  Avatar,
+  Button,
+  Card,
+  Col,
+  Input,
+  message,
+  Popconfirm,
+  Row,
+  Select,
+  Statistic,
+  Table,
+} from "antd";
+import { ReloadOutlined, UserOutlined } from "@ant-design/icons";
 import AdminLayout from "@/components/AdminLayout";
 import GameStatsDetailModal, {
   GameRanking,
@@ -47,6 +60,7 @@ export default function PowerPage() {
   const [keyword, setKeyword] = useState("");
   const [selected, setSelected] = useState<GameRanking | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     fetch("/api/stores")
@@ -104,9 +118,47 @@ export default function PowerPage() {
   const defaultStoreId =
     storeFilter === ALL_STORES ? null : Number(storeFilter);
 
+  const handleResetAll = async () => {
+    setResetting(true);
+    try {
+      const res = await fetch("/api/game-stats/reset", { method: "POST" });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "清零失败");
+      message.success("已将所有人的战力和冠军次数清零");
+      loadRankings(storeFilter);
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : "清零失败");
+    } finally {
+      setResetting(false);
+    }
+  };
+
   return (
     <AdminLayout>
-      <h2 style={{ marginBottom: 24 }}>战力管理</h2>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 24,
+          flexWrap: "wrap",
+          gap: 12,
+        }}
+      >
+        <h2 style={{ margin: 0 }}>战力管理</h2>
+        <Popconfirm
+          title="确定要一键清零吗？"
+          description="将清零所有用户在所有门店的战力和冠军次数，此操作不可撤销。"
+          okText="确定清零"
+          okButtonProps={{ danger: true, loading: resetting }}
+          cancelText="取消"
+          onConfirm={handleResetAll}
+        >
+          <Button danger icon={<ReloadOutlined />} loading={resetting}>
+            一键清零
+          </Button>
+        </Popconfirm>
+      </div>
 
       {error && (
         <Alert
