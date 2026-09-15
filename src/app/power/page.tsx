@@ -124,7 +124,7 @@ export default function PowerPage() {
       const res = await fetch("/api/game-stats/reset", { method: "POST" });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error || "清零失败");
-      message.success("已将所有人的战力和冠军次数清零");
+      message.success("已将所有人的战力、冠军次数和历史流水清零");
       loadRankings(storeFilter);
     } catch (err) {
       message.error(err instanceof Error ? err.message : "清零失败");
@@ -148,7 +148,7 @@ export default function PowerPage() {
         <h2 style={{ margin: 0 }}>战力管理</h2>
         <Popconfirm
           title="确定要一键清零吗？"
-          description="将清零所有用户在所有门店的战力和冠军次数，此操作不可撤销。"
+          description="将清零所有用户在所有门店的战力和冠军次数，并删除所有历史流水记录，此操作不可撤销。"
           okText="确定清零"
           okButtonProps={{ danger: true, loading: resetting }}
           cancelText="取消"
