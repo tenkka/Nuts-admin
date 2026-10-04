@@ -19,6 +19,8 @@ interface BalanceLogDoc {
   realPrice?: number;
   note?: string;
   productId?: string | null;
+  storeId?: number | string | null;
+  storeName?: string | null;
   outTradeNo?: string;
   operatorOpenid?: string | null;
   createdAt?: unknown;
@@ -39,11 +41,30 @@ export async function GET(request: NextRequest) {
       Math.max(1, Number(params.get("size") ?? DEFAULT_SIZE) || DEFAULT_SIZE)
     );
 
-    const query: Record<string, string> = {};
-    if (openid) query.openid = openid;
-    if (type) query.type = type;
+    const storeId = params.get("storeId")?.trim() || "";
 
     const db = getDb();
+    const storesRes = await db.collection("stores").limit(1000).get();
+    const storeDocs = storesRes.data as {
+      _id: string;
+      id: number;
+      name: string;
+    }[];
+
+    const query: Record<string, unknown> = {};
+    if (openid) query.openid = openid;
+    if (type) query.type = type;
+    if (storeId) {
+      // 流水里的 storeId 存的是 stores 文档的 _id，筛选参数是门店的数字 id，
+      // 这里一并匹配 _id 和数字 id，兼容旧数据的不同写法
+      const store = storeDocs.find((s) => String(s.id) === storeId);
+      query.storeId = db.command.in([
+        ...(store ? [store._id] : []),
+        storeId,
+        Number(storeId),
+      ]);
+    }
+
     const collection = () => db.collection("balanceLogs").where(query);
 
     const [listRes, countRes] = await Promise.all([
@@ -57,6 +78,11 @@ export async function GET(request: NextRequest) {
 
     const docs = listRes.data as BalanceLogDoc[];
     const userMap = await getUsersByOpenid(docs.map((d) => d.openid));
+    const storeNames = new Map<string, string>();
+    for (const s of storeDocs) {
+      storeNames.set(s._id, s.name);
+      storeNames.set(String(s.id), s.name);
+    }
 
     const orders = docs.map((doc) => {
       const user =
@@ -79,6 +105,10 @@ export async function GET(request: NextRequest) {
         realPrice: doc.realPrice ?? 0,
         note: doc.note ?? "",
         productId: doc.productId ?? null,
+        storeName:
+          doc.storeName ||
+          (doc.storeId != null ? storeNames.get(String(doc.storeId)) : "") ||
+          "",
         outTradeNo: doc.outTradeNo ?? "",
         createdAt: toIsoString(doc.createdAt),
       };

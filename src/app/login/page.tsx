@@ -77,6 +77,9 @@ export default function LoginPage() {
             </Button>
           </Form.Item>
         </Form>
+        <div style={{ textAlign: "center", color: "#999", fontSize: 12 }}>
+          v{process.env.NEXT_PUBLIC_APP_VERSION}
+        </div>
       </Card>
     </div>
   );

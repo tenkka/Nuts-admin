@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Avatar, Select, Space, Table, Tag } from "antd";
+import { Alert, Avatar, Button, Select, Space, Table, Tag } from "antd";
 import type { TablePaginationConfig } from "antd";
 import { UserOutlined } from "@ant-design/icons";
 import AdminLayout from "@/components/AdminLayout";
@@ -26,8 +26,14 @@ interface OrderRecord {
   wechatAmount: number;
   realPrice: number;
   note: string;
+  storeName: string;
   outTradeNo: string;
   createdAt: string;
+}
+
+interface StoreOption {
+  id: number;
+  name: string;
 }
 
 interface UserOption {
@@ -96,6 +102,12 @@ const columns = [
     render: (method: string) => orderMethodLabel(method),
   },
   {
+    title: "门店",
+    dataIndex: "storeName",
+    key: "storeName",
+    render: (v: string) => v || "-",
+  },
+  {
     title: "备注",
     dataIndex: "note",
     key: "note",
@@ -122,6 +134,8 @@ export default function OrdersPage() {
   const [page, setPage] = useState(1);
   const [openid, setOpenid] = useState<string | undefined>();
   const [type, setType] = useState<string | undefined>();
+  const [stores, setStores] = useState<StoreOption[]>([]);
+  const [storeId, setStoreId] = useState<number | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -132,6 +146,7 @@ export default function OrdersPage() {
     });
     if (openid) params.set("openid", openid);
     if (type) params.set("type", type);
+    if (storeId != null) params.set("storeId", String(storeId));
 
     // 快速连点翻页/筛选时，先发的请求可能后返回，用 stale 标记丢弃过期响应
     let stale = false;
@@ -155,7 +170,19 @@ export default function OrdersPage() {
     return () => {
       stale = true;
     };
-  }, [page, openid, type]);
+  }, [page, openid, type, storeId]);
+
+  useEffect(() => {
+    fetch("/api/stores")
+      .then(async (res) => {
+        const body = await res.json();
+        if (!res.ok) return;
+        setStores(body.stores);
+      })
+      .catch(() => {
+        // 门店下拉只是筛选辅助，加载失败不影响订单列表
+      });
+  }, []);
 
   useEffect(() => {
     fetch("/api/users")
@@ -231,6 +258,14 @@ export default function OrdersPage() {
         />
         <Select
           allowClear
+          placeholder="按门店筛选"
+          style={{ width: 180 }}
+          value={storeId}
+          onChange={(value) => applyFilter(() => setStoreId(value))}
+          options={stores.map((s) => ({ label: s.name, value: s.id }))}
+        />
+        <Select
+          allowClear
           placeholder="按类型筛选"
           style={{ width: 160 }}
           value={type}
@@ -240,6 +275,18 @@ export default function OrdersPage() {
             value,
           }))}
         />
+        <Button
+          disabled={!openid && !type && storeId == null}
+          onClick={() =>
+            applyFilter(() => {
+              setOpenid(undefined);
+              setType(undefined);
+              setStoreId(undefined);
+            })
+          }
+        >
+          重置筛选
+        </Button>
       </Space>
 
       <Table
